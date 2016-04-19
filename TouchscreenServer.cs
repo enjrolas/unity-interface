@@ -7,19 +7,20 @@ using System.Collections.Generic;
 
 public class TouchscreenServer : MonoBehaviour
 {
-	public int listenPort = 7000;
+	private int listenPort = 7000;
 	private int multicastPort = 7000;
 	private int directPort = 8000;
 	UdpClient udpClient;
 	IPEndPoint endPoint;
 	Osc.Parser osc = new Osc.Parser ();
 	public GameObject player;
-	public static float leftBorder, rightBorder, topBorder, bottomBorder;
+	public float leftBorder=0, rightBorder=1, topBorder=1, bottomBorder=0;
 	public Boolean debug;
 	public Hashtable touches;
+	public Touch[] badTouch;
 	public List<touchscreenTarget> targets;
 	//these will get updates on every event coming from osc
-	public Boolean multicast;
+	public Boolean multicast=false;
 	private Boolean lastBoolean;
 
 	void Start ()
@@ -93,21 +94,37 @@ public class TouchscreenServer : MonoBehaviour
 				foreach (touchscreenTarget t in targets) {
 					t.onFingerMove (id, position, size);
 				}
-				((Touch)touches [id]).Update (position, size);		
-				if (debug)
+				if ((Touch)touches [id] != null) {
+					((Touch)touches [id]).Update (position, size);		
+				} else
+					touches [id] = new Touch (id, position);
+				if (debug) {
 					Debug.Log ("touch moved! ID:  " + id + "  (" + position.x + ", " + position.y + ")");
+					Debug.Log (msg.data[1]+" "+msg.data[2]);
+				}
 
 			}
 
 			//	Debug.Log (msg);
 		}
+		//dumb hack to make the contents of touches show up in the editor
+		//the unity editor can't show a hashtable, but it can show an array, so if the debug flag is set,
+		//we'll just put all the contents of touches into the array badTouch
+		if (debug) {			
+			badTouch = new Touch[touches.Count];
+			int i = 0;
+			foreach (DictionaryEntry pair in touches) {
+				badTouch [i] = (Touch)touches [pair.Key];
+				i++;
+			}
+		}
 	}
 
-	public static Vector2 mapToRange (float x, float y)
+	public Vector2 mapToRange (float x, float y)
 	{
 		Vector2 position = new Vector2 (x, y);
-		position.x = map (position.x, 0, 1, leftBorder, rightBorder);
-		position.y = map (position.y, 0, 1, bottomBorder, topBorder);
+		position.x = map (position.x, 0, 1.0f, leftBorder, rightBorder);
+		position.y = map (position.y, 0.0f, 1.0f, bottomBorder, topBorder);
 		return position;
 	}
 
@@ -118,6 +135,7 @@ public class TouchscreenServer : MonoBehaviour
 	}
 }
 
+[Serializable]
 public class Touch
 {
 	public int id;
